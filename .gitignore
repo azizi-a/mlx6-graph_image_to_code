@@ -1,2 +1,7 @@
 __pycache__/
 data_cache/
+node_modules/
+dist/
+data/generated_graphs/
+data/generated_code/
+.env

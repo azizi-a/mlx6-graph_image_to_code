@@ -1,0 +1,22 @@
+{
+  "name": "week_6",
+  "version": "1.0.0",
+  "description": "model to create code to reproduce graphs from images",
+  "type": "module",
+  "main": "data/puppeteer.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "gen": "npm run build && node dist/puppeteer.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "d3": "^7.9.0",
+    "puppeteer": "^24.3.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "typescript": "^5.8.2"
+  }
+}
