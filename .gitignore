@@ -4,4 +4,7 @@ node_modules/
 dist/
 data/generated_graphs/
 data/generated_code/
+data/fine_tuning/
+data/embeddings/
+models/
 .env
