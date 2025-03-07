@@ -7,8 +7,15 @@ from graph_dataset import prepare_training_data
 
 
 # Load model and processor
-processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
-model = AutoModelForImageTextToText.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+processor = AutoProcessor.from_pretrained(
+  "Qwen/Qwen2.5-VL-3B-Instruct", device_map="auto", torch_dtype=torch.float16, use_fast=True
+)
+model = AutoModelForImageTextToText.from_pretrained(
+  "Qwen/Qwen2.5-VL-3B-Instruct",
+  device_map="auto",
+  torch_dtype=torch.float16,
+  use_cache=False,
+)
 processor.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
 model.resize_token_embeddings(len(processor.tokenizer))
 
@@ -21,7 +28,15 @@ lora_config = LoraConfig(
   r=8,  # Rank of the update matrices
   lora_alpha=32,  # Parameter for scaling
   lora_dropout=0.1,  # Dropout probability for LoRA layers
-  target_modules=["q_proj", "v_proj"],  # Which modules to apply LoRA to
+  target_modules=[
+    "q_proj",
+    "v_proj",
+    "k_proj",
+    # "o_proj",
+    # "gate_proj",
+    # "up_proj",
+    # "down_proj",
+  ],  # Which modules to apply LoRA to
   bias="none",
 )
 
@@ -37,11 +52,10 @@ model.print_trainable_parameters()
 #
 # Load datasets and create dataloaders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-train_loader, val_loader = prepare_training_data(processor, batch_size=4, device=device)
+train_loader, val_loader = prepare_training_data(processor, batch_size=2, device=device)
 print(f"Created dataloaders with {len(train_loader)} training batches and {len(val_loader)} validation batches")
 
 # Set up training parameters
-model = model.to(device)
 print(f"Using device: {device}")
 
 
@@ -122,11 +136,18 @@ if __name__ == "__main__":
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
   scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
+  # Initialize mixed precision training
+  scaler = torch.amp.GradScaler(device)
+
   for epoch in tqdm(range(num_epochs), desc="Epochs"):
     train_loss = train_loop(model, train_loader, optimizer, scheduler, epoch, num_epochs)
     val_loss = validate_loop(model, val_loader, epoch, num_epochs)
 
     print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
+    # Clear cache between epochs
+    if torch.cuda.is_available():
+      torch.cuda.empty_cache()
 
   # Save the fine-tuned model
   output_dir = "models/qwen2.5-vl-3b-d3js-finetuned"
