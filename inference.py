@@ -16,11 +16,13 @@ def load_model(model_path):
 
   # Load processor from the base model, not the fine-tuned path
   processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+  processor.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
 
   # Load base model
   base_model = AutoModelForImageTextToText.from_pretrained(
     "Qwen/Qwen2.5-VL-3B-Instruct", device_map="auto", torch_dtype=torch.float16
   )
+  base_model.resize_token_embeddings(len(processor.tokenizer))
 
   # Load fine-tuned model
   model = PeftModel.from_pretrained(base_model, model_path)
@@ -68,11 +70,43 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
   else:
     code = generated_text
 
+  # Create a complete HTML page with the generated D3.js code
+  html_template = f"""<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>D3.js Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      body {{
+        font-family: Arial, sans-serif;
+      }}
+      .chart-container {{
+        margin: 20px;
+      }}
+    </style>
+  </head>
+  <body>
+    <div class="chart-container">
+      <h2>Generated Visualization</h2>
+      <svg id="chart" width="800" height="500"></svg>
+    </div>
+    <script>
+      // D3.js code
+      {code}
+    </script>
+  </body>
+</html>"""
+
   # Save to file if output path is provided
   if output_path:
+    # If output doesn't end with .html, add .html extension
+    if not output_path.endswith(".html"):
+      output_path = f"{output_path}.html"
+
     with open(output_path, "w") as f:
-      f.write(code)
-    print(f"D3.js code saved to {output_path}")
+      f.write(html_template)
+    print(f"Complete HTML with D3.js code saved to {output_path}")
 
   return code
 
@@ -81,10 +115,15 @@ def main():
   parser = argparse.ArgumentParser(description="Generate D3.js code from graph images")
   parser.add_argument("--image", type=str, required=True, help="Path to the graph image")
   parser.add_argument(
-    "--model", type=str, default="models/qwen2.5-vl-3b-d3js-finetuned", help="Path to the fine-tuned model"
+    "--model", type=str, default="models/qwen2.5-vl-3b-d3js-finetuned-best", help="Path to the fine-tuned model"
   )
-  parser.add_argument("--output", type=str, default=None, help="Path to save the generated D3.js code (optional)")
-  parser.add_argument("--max_length", type=int, default=1024, help="Maximum length of generated code")
+  parser.add_argument(
+    "--output",
+    type=str,
+    default="./inference_results/graph.html",
+    help="Path to save the generated HTML with D3.js code (optional)",
+  )
+  parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of generated code")
 
   args = parser.parse_args()
 
@@ -96,8 +135,9 @@ def main():
   print(f"Generating D3.js code for {args.image}...")
   code = generate_d3_code(model, processor, args.image, args.output, args.max_length)
 
-  # Print code if no output file specified
-  if not args.output:
+  if args.output:
+    print(f"Complete HTML with D3.js code saved to {args.output}")
+  else:
     print("\nGenerated D3.js code:")
     print("-" * 40)
     print(code)

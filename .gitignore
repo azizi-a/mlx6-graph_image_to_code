@@ -7,4 +7,5 @@ data/generated_code/
 data/fine_tuning/
 data/embeddings/
 models/
+inference_results/
 .env
