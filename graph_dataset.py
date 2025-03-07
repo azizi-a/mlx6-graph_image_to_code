@@ -7,22 +7,24 @@ from PIL import Image
 
 
 class GraphCodeDataset(Dataset):
-  def __init__(self, embeddings_file, code_dir, processor, max_length=512):
+  def __init__(self, image_dir, code_dir, processor, max_length=512, max_samples=None):
     """
-    Dataset for graph embeddings paired with their corresponding code.
+    Dataset for graph images paired with their corresponding code.
 
     Args:
-        embeddings_file: Path to the .npy file containing image embeddings
+        image_dir: Directory containing the graph images
         code_dir: Directory containing the D3.js code files
         processor: Qwen processor for encoding the inputs
         max_length: Maximum sequence length for tokenization
+        max_samples: Maximum number of samples to load (None for all)
     """
-    # Load embeddings
-    self.embeddings_dict = np.load(embeddings_file, allow_pickle=True).item()
-    self.image_files = list(self.embeddings_dict.keys())
+    self.image_dir = image_dir
     self.processor = processor
     self.max_length = max_length
     self.code_dir = code_dir
+
+    # Get all image files
+    self.image_files = [f for f in os.listdir(image_dir) if f.endswith(".png")]
 
     # Map image filenames to code filenames
     self.image_to_code_map = {}
@@ -36,6 +38,10 @@ class GraphCodeDataset(Dataset):
 
     # Filter to only include images that have corresponding code
     self.valid_images = [img for img in self.image_files if img in self.image_to_code_map]
+
+    # Limit the number of samples if specified
+    if max_samples is not None:
+      self.valid_images = self.valid_images[: min(max_samples, len(self.valid_images))]
 
     print(f"Loaded {len(self.valid_images)} valid image-code pairs")
 
@@ -90,23 +96,22 @@ class GraphCodeDataset(Dataset):
     return inputs
 
 
-def prepare_training_data(processor, batch_size=4, device="cpu"):
+def prepare_training_data(processor, batch_size=4, device="cpu", max_samples=None):
   """
   Prepare training and validation datasets and dataloaders
+
+  Args:
+      processor: Qwen processor for encoding the inputs
+      batch_size: Batch size for dataloaders
+      device: Device to load tensors to
+      max_samples: Maximum number of samples to load (None for all)
   """
   # Paths
-  embeddings_file = os.path.join("data", "embeddings", "graph_embeddings.npy")
+  image_dir = os.path.join("data", "generated_graphs")
   code_dir = os.path.join("data", "generated_code")
 
-  # Check if embeddings exist, if not generate them
-  if not os.path.exists(embeddings_file):
-    print("Embeddings file not found. Generating embeddings...")
-    from image_embeddings import generate_embeddings
-
-    generate_embeddings()
-
   # Create dataset
-  dataset = GraphCodeDataset(embeddings_file, code_dir, processor)
+  dataset = GraphCodeDataset(image_dir, code_dir, processor, max_samples=max_samples)
 
   # Split into train and validation sets (80/20)
   train_size = int(0.8 * len(dataset))
@@ -134,31 +139,28 @@ def prepare_training_data(processor, batch_size=4, device="cpu"):
   return train_loader, val_loader
 
 
-def create_fine_tuning_dataset(output_dir="data/fine_tuning"):
+def create_fine_tuning_dataset(output_dir="data/fine_tuning", max_samples=None):
   """
   Create and save fine-tuning dataset in a format suitable for HuggingFace
+
+  Args:
+      output_dir: Directory to save the dataset files
+      max_samples: Maximum number of samples to include (None for all)
   """
   # Paths
-  embeddings_file = os.path.join("data", "embeddings", "graph_embeddings.npy")
+  image_dir = os.path.join("data", "generated_graphs")
   code_dir = os.path.join("data", "generated_code")
-
-  # Check if embeddings exist, if not generate them
-  if not os.path.exists(embeddings_file):
-    print("Embeddings file not found. Generating embeddings...")
-    from image_embeddings import generate_embeddings
-
-    generate_embeddings()
-
-  # Load embeddings
-  embeddings_dict = np.load(embeddings_file, allow_pickle=True).item()
 
   # Create output directory
   os.makedirs(output_dir, exist_ok=True)
 
+  # Get all image files
+  image_files = [f for f in os.listdir(image_dir) if f.endswith(".png")]
+
   # Create dataset in JSONL format
   train_data = []
 
-  for img_file, embedding in embeddings_dict.items():
+  for img_file in image_files:
     # Extract the base name without extension
     base_name = os.path.splitext(img_file)[0]
     code_file = f"{base_name}.js"
@@ -168,14 +170,19 @@ def create_fine_tuning_dataset(output_dir="data/fine_tuning"):
       with open(code_path, "r") as f:
         code_content = f.read()
 
-      # Create a sample with instruction, input (embedding), and output (code)
+      # Create a sample with instruction and output (code)
+      # Instead of using embeddings, we'll use the image filename as input
       sample = {
         "instruction": "Generate D3.js code for the graph in this image.",
-        "input": embedding.tolist(),  # Convert numpy array to list for JSON serialization
+        "input": img_file,  # Just use the filename as a reference
         "output": code_content,
       }
 
       train_data.append(sample)
+
+      # Limit the number of samples if specified
+      if max_samples is not None and len(train_data) >= max_samples:
+        break
 
   # Split into train and validation sets (80/20)
   train_size = int(0.8 * len(train_data))
