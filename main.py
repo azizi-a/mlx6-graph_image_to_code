@@ -152,5 +152,4 @@ if __name__ == "__main__":
   # Save the fine-tuned model
   output_dir = "models/qwen2.5-vl-3b-d3js-finetuned"
   model.save_pretrained(output_dir)
-  processor.save_pretrained(output_dir)
   print(f"Model saved to {output_dir}")
