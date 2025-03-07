@@ -52,7 +52,7 @@ model.print_trainable_parameters()
 #
 # Load datasets and create dataloaders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-train_loader, val_loader = prepare_training_data(processor, batch_size=2, device=device)
+train_loader, val_loader = prepare_training_data(processor, batch_size=16, device=device)
 print(f"Created dataloaders with {len(train_loader)} training batches and {len(val_loader)} validation batches")
 
 # Set up training parameters
@@ -131,7 +131,11 @@ def validate_loop(model, val_loader, epoch=None, num_epochs=None):
 #
 if __name__ == "__main__":
   learning_rate = 1e-5
-  num_epochs = 4
+  num_epochs = 10
+
+  # Track best model
+  best_val_loss = float("inf")
+  best_epoch = -1
 
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
   scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
@@ -145,11 +149,23 @@ if __name__ == "__main__":
 
     print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
+    # Save the best model based on validation loss
+    if val_loss < best_val_loss:
+      best_val_loss = val_loss
+      best_epoch = epoch + 1
+
+      # Save the best model checkpoint
+      best_model_dir = "models/qwen2.5-vl-3b-d3js-finetuned-best"
+      model.save_pretrained(best_model_dir)
+      print(f"New best model saved at epoch {best_epoch} with validation loss: {best_val_loss:.4f}")
+
     # Clear cache between epochs
     if torch.cuda.is_available():
       torch.cuda.empty_cache()
 
-  # Save the fine-tuned model
+  # Save the final fine-tuned model
   output_dir = "models/qwen2.5-vl-3b-d3js-finetuned"
   model.save_pretrained(output_dir)
-  print(f"Model saved to {output_dir}")
+
+  print(f"Final model saved to {output_dir}")
+  print(f"Best model was from epoch {best_epoch} with validation loss: {best_val_loss:.4f}")
