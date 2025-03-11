@@ -32,7 +32,7 @@ lora_config = LoraConfig(
     "q_proj",
     "v_proj",
     "k_proj",
-    # "o_proj",
+    "o_proj",
     # "gate_proj",
     # "up_proj",
     # "down_proj",
@@ -74,12 +74,23 @@ def forward_pass(batch):
   return outputs.loss, outputs.logits
 
 
-def backward_pass(loss, optimizer, scheduler=None):
+def backward_pass(loss, optimizer, scheduler=None, scaler=None):
   optimizer.zero_grad()
-  loss.backward()
-  # Clip gradients to prevent exploding gradients
-  torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-  optimizer.step()
+
+  if scaler is not None:
+    # Mixed precision backward pass
+    scaler.scale(loss).backward()
+    scaler.unscale_(optimizer)
+    # Clip gradients to prevent exploding gradients
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    scaler.step(optimizer)
+    scaler.update()
+  else:
+    # Standard backward pass
+    loss.backward()
+    # Clip gradients to prevent exploding gradients
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    optimizer.step()
 
   # Update learning rate if scheduler is provided
   if scheduler is not None:
@@ -91,7 +102,7 @@ def backward_pass(loss, optimizer, scheduler=None):
 #
 #
 #
-def train_loop(model, train_loader, optimizer, scheduler, epoch=None, num_epochs=None):
+def train_loop(model, train_loader, optimizer, scheduler, epoch=None, num_epochs=None, scaler=None):
   model.train()
   total_train_loss = 0
 
@@ -100,8 +111,14 @@ def train_loop(model, train_loader, optimizer, scheduler, epoch=None, num_epochs
   train_iterator = tqdm(train_loader, desc=desc, leave=False)
 
   for batch in train_iterator:
-    loss, outputs = forward_pass(batch)
-    loss_value = backward_pass(loss, optimizer, scheduler)
+    # Use mixed precision for forward pass if scaler is provided
+    if scaler is not None:
+      with torch.amp.autocast("cuda"):
+        loss, outputs = forward_pass(batch)
+    else:
+      loss, outputs = forward_pass(batch)
+
+    loss_value = backward_pass(loss, optimizer, scheduler, scaler)
     total_train_loss += loss_value
     train_iterator.set_postfix({"loss": f"{loss_value:.4f}"})
 
@@ -140,11 +157,14 @@ if __name__ == "__main__":
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
   scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-  # Initialize mixed precision training
-  scaler = torch.amp.GradScaler(device)
+  if torch.cuda.is_available():
+    # Initialize mixed precision training with updated constructor
+    scaler = torch.amp.GradScaler("cuda")
+  else:
+    scaler = None
 
   for epoch in tqdm(range(num_epochs), desc="Epochs"):
-    train_loss = train_loop(model, train_loader, optimizer, scheduler, epoch, num_epochs)
+    train_loss = train_loop(model, train_loader, optimizer, scheduler, epoch, num_epochs, scaler)
     val_loss = validate_loop(model, val_loader, epoch, num_epochs)
 
     print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
