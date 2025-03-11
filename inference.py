@@ -6,14 +6,14 @@ from peft import PeftModel
 import os
 
 
-def load_model(model_path):
+def load_model(model_path, use_original=False):
   """
   Load the fine-tuned model and processor
-  """
-  # Check if model path exists
-  if not os.path.exists(model_path):
-    raise FileNotFoundError(f"Model path {model_path} does not exist. Please run training first.")
 
+  Args:
+    model_path: Path to the fine-tuned model
+    use_original: If True, use the original model without fine-tuned weights
+  """
   # Load processor from the base model, not the fine-tuned path
   processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
   processor.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
@@ -24,10 +24,18 @@ def load_model(model_path):
   )
   base_model.resize_token_embeddings(len(processor.tokenizer))
 
-  # Load fine-tuned model
-  model = PeftModel.from_pretrained(base_model, model_path)
-  model.eval()
+  if use_original:
+    # Return the original model without fine-tuned weights
+    model = base_model
+  else:
+    # Check if model path exists
+    if not os.path.exists(model_path):
+      raise FileNotFoundError(f"Model path {model_path} does not exist. Please run training first.")
 
+    # Load fine-tuned model
+    model = PeftModel.from_pretrained(base_model, model_path)
+
+  model.eval()
   return model, processor
 
 
@@ -124,12 +132,13 @@ def main():
     help="Path to save the generated HTML with D3.js code (optional)",
   )
   parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of generated code")
+  parser.add_argument("--use_original", action="store_true", help="Use the original model without fine-tuned weights")
 
   args = parser.parse_args()
 
   # Load model
   print("Loading model...")
-  model, processor = load_model(args.model)
+  model, processor = load_model(args.model, args.use_original)
 
   # Generate code
   print(f"Generating D3.js code for {args.image}...")
