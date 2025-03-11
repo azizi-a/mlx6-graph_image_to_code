@@ -3,7 +3,7 @@ import * as path from "path";
 import puppeteer from "puppeteer";
 
 // Define graph types
-type GraphType = "bar" | "line" | "pie" | "scatter" | "area";
+type GraphType = "bar" | "line" | "pie" | "scatter" | "area" | "doughnut";
 
 interface GraphConfig {
   type: GraphType;
@@ -407,6 +407,74 @@ g.append("text")
   .text("${yAxisLabel}");
       `;
 
+    case "doughnut":
+      return `
+const svg = d3.select("#chart");
+const width = ${width};
+const height = ${height};
+const radius = Math.min(width, height) / 2 - 40;
+
+const data = ${JSON.stringify(data)};
+
+const color = d3.scaleOrdinal()
+  .domain(data.map(d => d.label))
+  .range(${JSON.stringify(colors)});
+
+const pie = d3.pie()
+  .value(d => d.value)
+  .sort(null);
+
+const arc = d3.arc()
+  .innerRadius(radius * 0.5)
+  .outerRadius(radius);
+
+const labelArc = d3.arc()
+  .innerRadius(radius * 0.7)
+  .outerRadius(radius * 0.7);
+
+const g = svg.append("g")
+  .attr("transform", \`translate(\${width / 2},\${height / 2})\`);
+
+const arcs = g.selectAll(".arc")
+  .data(pie(data))
+  .enter().append("g")
+  .attr("class", "arc");
+
+arcs.append("path")
+  .attr("d", arc)
+  .attr("fill", d => color(d.data.label))
+  .attr("stroke", "white")
+  .style("stroke-width", "2px");
+
+arcs.append("text")
+  .attr("transform", d => \`translate(\${labelArc.centroid(d)})\`)
+  .attr("dy", ".35em")
+  .style("text-anchor", "middle")
+  .style("font-size", "12px")
+  .text(d => d.data.label);
+
+// Add legend
+const legend = svg.append("g")
+  .attr("transform", \`translate(\${width - 120}, 20)\`);
+
+data.forEach((d, i) => {
+  const legendRow = legend.append("g")
+    .attr("transform", \`translate(0, \${i * 20})\`);
+    
+  legendRow.append("rect")
+    .attr("width", 10)
+    .attr("height", 10)
+    .attr("fill", color(d.label));
+    
+  legendRow.append("text")
+    .attr("x", 15)
+    .attr("y", 10)
+    .attr("text-anchor", "start")
+    .style("font-size", "12px")
+    .text(d.label);
+});
+      `;
+
     default:
       return `console.error("Unsupported graph type: ${type}");`;
   }
@@ -522,7 +590,7 @@ function generateAxisLabels(type: GraphType): { x: string; y: string } {
   return { x: xLabel, y: yLabel };
 }
 
-// Generate sample data for different graph types
+// Function to generate sample data for different graph types
 function generateSampleData(type: GraphType): any[] {
   switch (type) {
     case "bar":
@@ -553,6 +621,13 @@ function generateSampleData(type: GraphType): any[] {
         size: Math.random() * 8 + 3,
       }));
 
+    case "doughnut":
+      const doughnutData = generateDoughnutChartData();
+      return doughnutData.labels.map((label, index) => ({
+        label,
+        value: doughnutData.datasets[0].data[index],
+      }));
+
     default:
       return [];
   }
@@ -572,7 +647,14 @@ async function generateGraphs(count: number): Promise<void> {
     fs.mkdirSync(codeDir, { recursive: true });
   }
 
-  const graphTypes: GraphType[] = ["bar", "line", "pie", "scatter", "area"];
+  const graphTypes: GraphType[] = [
+    "bar",
+    "line",
+    "pie",
+    "scatter",
+    "area",
+    "doughnut",
+  ];
 
   // Launch browser
   const browser = await puppeteer.launch({
