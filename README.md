@@ -14,7 +14,7 @@ code are stored in the `data/` folder.
 npm install
 ```
 
-2. Build the project
+1. Build the project
 
 ```bash
 npm run build
@@ -29,22 +29,41 @@ npm run gen
 Graphs will be generated in the `data/generated_graphs` folder. D3 code is
 generated in the `data/generated_code` folder.
 
-## Training
+## Training and Inference
+
+For training and inference, you will need to have `python` and `uv` installed.
+
+### Prerequisites
+
+1. Create a virtual environment
+
+```bash
+uv venv
+source .venv/bin/activate
+```
+
+2. Install dependencies
+
+```bash
+uv sync
+```
+
+### Training
 
 Training is done using the `main.py` script with model LoRa weights saved in the
 `models/` folder.
 
 ```bash
-python main.py
+uv run -m src.main
 ```
 
-## Inference
+### Inference
 
-Inference is done using the `inference.py` script with model LoRa weights saved
-in the `models/` folder.
+Inference is done using the `src/inference.py` script with model LoRa weights
+saved in the `models/` folder.
 
 ```bash
-python inference.py --image path/to/chart.png --output generated_code.html
+uv run -m src.inference --image path/to/chart.png --output generated_code.html
 ```
 
 ### Inference Options
@@ -61,7 +80,7 @@ python inference.py --image path/to/chart.png --output generated_code.html
 Example:
 
 ```bash
-python inference.py --image data/generated_graphs/graph_1_bar.png --output my_d3_code.html
+uv run -m src.inference --image data/generated_graphs/graph_1_bar.png --output my_d3_code.html
 ```
 
 The script will load the fine-tuned model, process the input image, and generate
