@@ -70,7 +70,7 @@ uv run -m src.inference --image path/to/chart.png --output generated_code.html
 
 - `--image`: Path to the input chart image (required)
 - `--model`: Path to the fine-tuned model (default:
-  "models/qwen2.5-vl-3b-d3js-finetuned-best")
+  "weights/qwen2.5-vl-3b-d3js-finetuned-best")
 - `--output`: Output file for the generated D3.js in html format (default:
   "generated_code.html")
 - `--max_length`: Maximum length of generated code (default: 2048)

@@ -6,6 +6,9 @@ import peft
 import os
 
 
+#
+#
+#
 def load_model(model_path, use_original=False):
   """
   Load the fine-tuned model and processor
@@ -39,6 +42,28 @@ def load_model(model_path, use_original=False):
   return model, processor
 
 
+#
+#
+#
+def extract_code(code):
+  """
+  Extract just the code part (remove any assistant prefixes)
+  """
+  if "assistant" in code.lower():
+    code = code.split("assistant")[-1].strip()
+    if code.startswith(":"):
+      code = code[1:].strip()
+
+  if "```javascript" in code:
+    code = code.split("```javascript")[1]
+    code = code.split("```")[0]
+
+  return code
+
+
+#
+#
+#
 def generate_d3_code(model, processor, image_path, output_path=None, max_length=1024):
   """
   Generate D3.js code for a graph image
@@ -63,20 +88,23 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
   # Process inputs
   inputs = processor(text=text, return_tensors="pt").to(model.device)
 
+  generation_config = {
+    "max_length": max_length,
+    "do_sample": False,  # Use greedy decoding for code generation
+    "num_beams": 1,  # Use beam search with 1 beam (greedy)
+    "temperature": 1.0,  # Temperature is not used with do_sample=False
+    "pad_token_id": processor.tokenizer.pad_token_id,
+    "eos_token_id": processor.tokenizer.eos_token_id,
+  }
+
   # Generate code
   with torch.no_grad():
-    outputs = model.generate(**inputs, max_length=max_length, do_sample=False, temperature=0.1, num_beams=3)
+    outputs = model.generate(**inputs, **generation_config)
 
   # Decode the generated text
   generated_text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
 
-  # Extract just the code part (remove any assistant prefixes)
-  if "assistant" in generated_text.lower():
-    code = generated_text.split("assistant")[-1].strip()
-    if code.startswith(":"):
-      code = code[1:].strip()
-  else:
-    code = generated_text
+  code = extract_code(generated_text)
 
   # Create a complete HTML page with the generated D3.js code
   html_template = f"""<!DOCTYPE html>
@@ -119,11 +147,14 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
   return code
 
 
+#
+#
+#
 def main():
   parser = argparse.ArgumentParser(description="Generate D3.js code from graph images")
   parser.add_argument("--image", type=str, required=True, help="Path to the graph image")
   parser.add_argument(
-    "--model", type=str, default="models/qwen2.5-vl-3b-d3js-finetuned-best", help="Path to the fine-tuned model"
+    "--model", type=str, default="weights/qwen2.5-vl-3b-d3js-finetuned-best", help="Path to the fine-tuned model"
   )
   parser.add_argument(
     "--output",
