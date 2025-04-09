@@ -1,11 +1,11 @@
 import os
-import torch
-from torch.utils.data import Dataset, DataLoader
 import json
-from PIL import Image
+import pathlib
+import PIL
+import torch
 
 
-class GraphCodeDataset(Dataset):
+class GraphCodeDataset(torch.utils.data.Dataset):
   def __init__(self, image_dir, code_dir, processor, max_length=512, max_samples=None):
     """
     Dataset for graph images paired with their corresponding code.
@@ -52,8 +52,8 @@ class GraphCodeDataset(Dataset):
     code_file = self.image_to_code_map[img_file]
 
     # Load the original image
-    img_path = os.path.join("data", "generated_graphs", img_file)
-    image = Image.open(img_path).convert("RGB")
+    img_path = os.path.join(self.image_dir, img_file)
+    image = PIL.Image.open(img_path).convert("RGB")
 
     # Read code content
     with open(code_file, "r") as f:
@@ -106,8 +106,9 @@ def prepare_training_data(processor, batch_size=4, device="cpu", max_samples=Non
       max_samples: Maximum number of samples to load (None for all)
   """
   # Paths
-  image_dir = os.path.join("data", "generated_graphs")
-  code_dir = os.path.join("data", "generated_code")
+  project_root = pathlib.Path(__file__).parent.parent
+  image_dir = project_root / "data" / "generated_graphs"
+  code_dir = project_root / "data" / "generated_code"
 
   # Create dataset
   dataset = GraphCodeDataset(image_dir, code_dir, processor, max_samples=max_samples)
@@ -132,13 +133,13 @@ def prepare_training_data(processor, batch_size=4, device="cpu", max_samples=Non
     return collated_batch
 
   # Create data loaders with collate function
-  train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-  val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=collate_fn)
+  train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+  val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, collate_fn=collate_fn)
 
   return train_loader, val_loader
 
 
-def create_fine_tuning_dataset(output_dir="data/fine_tuning", max_samples=None):
+def create_fine_tuning_dataset(output_dir="../data/fine_tuning", max_samples=None):
   """
   Create and save fine-tuning dataset in a format suitable for HuggingFace
 
@@ -147,11 +148,13 @@ def create_fine_tuning_dataset(output_dir="data/fine_tuning", max_samples=None):
       max_samples: Maximum number of samples to include (None for all)
   """
   # Paths
-  image_dir = os.path.join("data", "generated_graphs")
-  code_dir = os.path.join("data", "generated_code")
+  project_root = pathlib.Path(__file__).parent.parent
+  image_dir = project_root / "data" / "generated_graphs"
+  code_dir = project_root / "data" / "generated_code"
 
   # Create output directory
-  os.makedirs(output_dir, exist_ok=True)
+  output_dir = pathlib.Path(output_dir)
+  output_dir.mkdir(parents=True, exist_ok=True)
 
   # Get all image files
   image_files = [f for f in os.listdir(image_dir) if f.endswith(".png")]

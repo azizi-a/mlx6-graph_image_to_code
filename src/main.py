@@ -1,16 +1,17 @@
 # Load model directly
 import torch
-from tqdm import tqdm
-from transformers import AutoProcessor, AutoModelForImageTextToText
-from peft import get_peft_model, LoraConfig, TaskType
-from graph_dataset import prepare_training_data
+import tqdm
+import transformers
+import peft
+import pathlib
 
+from src import graph_dataset
 
 # Load model and processor
-processor = AutoProcessor.from_pretrained(
+processor = transformers.AutoProcessor.from_pretrained(
   "Qwen/Qwen2.5-VL-3B-Instruct", device_map="auto", torch_dtype=torch.float16, use_fast=True
 )
-model = AutoModelForImageTextToText.from_pretrained(
+model = transformers.AutoModelForImageTextToText.from_pretrained(
   "Qwen/Qwen2.5-VL-3B-Instruct",
   device_map="auto",
   torch_dtype=torch.float16,
@@ -23,8 +24,8 @@ model.resize_token_embeddings(len(processor.tokenizer))
 #
 #
 # Configure LoRA adapter
-lora_config = LoraConfig(
-  task_type=TaskType.CAUSAL_LM,
+lora_config = peft.LoraConfig(
+  task_type=peft.TaskType.CAUSAL_LM,
   r=8,  # Rank of the update matrices
   lora_alpha=32,  # Parameter for scaling
   lora_dropout=0.1,  # Dropout probability for LoRA layers
@@ -41,7 +42,7 @@ lora_config = LoraConfig(
 )
 
 # Apply LoRA adapter to the model
-model = get_peft_model(model, lora_config)
+model = peft.get_peft_model(model, lora_config)
 print("LoRA adapter applied to the model")
 
 # Print trainable parameters info
@@ -52,7 +53,7 @@ model.print_trainable_parameters()
 #
 # Load datasets and create dataloaders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-train_loader, val_loader = prepare_training_data(processor, batch_size=16, device=device)
+train_loader, val_loader = graph_dataset.prepare_training_data(processor, batch_size=16, device=device)
 print(f"Created dataloaders with {len(train_loader)} training batches and {len(val_loader)} validation batches")
 
 # Set up training parameters
@@ -108,7 +109,7 @@ def train_loop(model, train_loader, optimizer, scheduler, epoch=None, num_epochs
 
   # Create progress bar for training batches
   desc = "Training" if epoch is None else f"Training (Epoch {epoch + 1}/{num_epochs})"
-  train_iterator = tqdm(train_loader, desc=desc, leave=False)
+  train_iterator = tqdm.tqdm(train_loader, desc=desc, leave=False)
 
   for batch in train_iterator:
     # Use mixed precision for forward pass if scaler is provided
@@ -131,7 +132,7 @@ def validate_loop(model, val_loader, epoch=None, num_epochs=None):
 
   # Create progress bar for validation batches
   desc = "Validation" if epoch is None else f"Validation (Epoch {epoch + 1}/{num_epochs})"
-  val_iterator = tqdm(val_loader, desc=desc, leave=False)
+  val_iterator = tqdm.tqdm(val_loader, desc=desc, leave=False)
 
   with torch.no_grad():
     for batch in val_iterator:
@@ -150,6 +151,9 @@ if __name__ == "__main__":
   learning_rate = 1e-5
   num_epochs = 10
 
+  # Get the project root directory for saving weights
+  project_root = pathlib.Path(__file__).parent.parent
+
   # Track best model
   best_val_loss = float("inf")
   best_epoch = -1
@@ -163,7 +167,7 @@ if __name__ == "__main__":
   else:
     scaler = None
 
-  for epoch in tqdm(range(num_epochs), desc="Epochs"):
+  for epoch in tqdm.tqdm(range(num_epochs), desc="Epochs"):
     train_loss = train_loop(model, train_loader, optimizer, scheduler, epoch, num_epochs, scaler)
     val_loss = validate_loop(model, val_loader, epoch, num_epochs)
 
@@ -174,17 +178,14 @@ if __name__ == "__main__":
       best_val_loss = val_loss
       best_epoch = epoch + 1
 
-      # Save the best model checkpoint
-      best_model_dir = "models/qwen2.5-vl-3b-d3js-finetuned-best"
-      model.save_pretrained(best_model_dir)
-      print(f"New best model saved at epoch {best_epoch} with validation loss: {best_val_loss:.4f}")
+    best_model_dir = str(project_root / "weights/qwen2.5-vl-3b-d3js-finetuned-best")
 
     # Clear cache between epochs
     if torch.cuda.is_available():
       torch.cuda.empty_cache()
 
   # Save the final fine-tuned model
-  output_dir = "models/qwen2.5-vl-3b-d3js-finetuned"
+  output_dir = "weights/qwen2.5-vl-3b-d3js-finetuned"
   model.save_pretrained(output_dir)
 
   print(f"Final model saved to {output_dir}")

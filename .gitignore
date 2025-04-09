@@ -6,6 +6,6 @@ data/generated_graphs/
 data/generated_code/
 data/fine_tuning/
 data/embeddings/
-models/
+weights/
 inference_results/
 .env
