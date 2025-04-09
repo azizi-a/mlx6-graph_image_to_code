@@ -50,11 +50,11 @@ uv sync
 
 ### Training
 
-Training is done using the `main.py` script with model LoRa weights saved in the
-`models/` folder.
+Training is done using the `src/train.py` script with model LoRa weights saved
+in the `models/` folder.
 
 ```bash
-uv run -m src.main
+uv run -m src.train
 ```
 
 ### Inference
