@@ -592,6 +592,10 @@ function generateAxisLabels(type: GraphType): { x: string; y: string } {
 
 // Function to generate sample data for different graph types
 function generateSampleData(type: GraphType): any[] {
+  const length = Math.floor(Math.random() * 30 + 5);
+  const xMagnitude = 10 ** Math.floor(Math.random() * 4);
+  const yMagnitude = 10 ** Math.floor(Math.random() * 4);
+
   switch (type) {
     case "bar":
       const barData = generateBarChartData();
@@ -609,16 +613,16 @@ function generateSampleData(type: GraphType): any[] {
 
     case "line":
     case "area":
-      return Array.from({ length: 10 }, (_, i) => ({
-        x: i,
-        y: Math.random() * 50 + 10,
+      return Array.from({ length }, (_, i) => ({
+        x: i * xMagnitude,
+        y: Math.floor(Math.random() * yMagnitude * 100) / 100,
       }));
 
     case "scatter":
-      return Array.from({ length: 30 }, () => ({
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 8 + 3,
+      return Array.from({ length }, () => ({
+        x: Math.floor(Math.random() * xMagnitude * 100) / 100, // Round to nearest integer
+        y: Math.floor(Math.random() * yMagnitude * 100) / 100, // Round to nearest integer
+        size: Math.ceil(Math.random() * 10), // Round to nearest integer
       }));
 
     case "doughnut":
@@ -815,11 +819,9 @@ export function generateBarChartData() {
     datasetOptions[Math.floor(Math.random() * datasetOptions.length)];
 
   // Generate truly random data with varying scales for each dataset
-  const dataset1Max = Math.floor(Math.random() * 900) + 300;
-  const dataset1Min = Math.floor(Math.random() * 200);
-
-  const dataset2Max = Math.floor(Math.random() * 900) + 300;
-  const dataset2Min = Math.floor(Math.random() * 200);
+  const magnitude = 10 ** Math.floor(Math.random() * 5);
+  const dataset1Max = Math.random() * magnitude * 10;
+  const dataset2Max = Math.random() * magnitude * 10;
 
   return {
     labels: selectedLabels,
@@ -827,20 +829,20 @@ export function generateBarChartData() {
       {
         label: selectedDataset[0],
         data: selectedLabels.map(
-          () =>
-            Math.floor(Math.random() * (dataset1Max - dataset1Min)) +
-            dataset1Min
+          () => Math.floor(Math.random() * dataset1Max * 10) / 10
         ),
         backgroundColor: "rgba(75, 192, 192, 0.6)",
+        borderColor: "rgba(54, 162, 235, 1)",
+        borderWidth: 1,
       },
       {
         label: selectedDataset[1],
         data: selectedLabels.map(
-          () =>
-            Math.floor(Math.random() * (dataset2Max - dataset2Min)) +
-            dataset2Min
+          () => Math.floor(Math.random() * dataset2Max * 10) / 10
         ),
         backgroundColor: "rgba(255, 99, 132, 0.6)",
+        borderColor: "rgba(255, 99, 132, 1)",
+        borderWidth: 1,
       },
     ],
   };
@@ -1045,7 +1047,7 @@ export function generatePieChartData() {
     labelSets[Math.floor(Math.random() * labelSets.length)];
 
   // Select a random number of segments (3-7)
-  const numSegments = Math.floor(Math.random() * 5) + 3;
+  const numSegments = Math.floor(Math.random() * 6) + 2;
   const selectedSegments = [...selectedLabelSet]
     .sort(() => 0.5 - Math.random())
     .slice(0, numSegments);
@@ -1151,8 +1153,8 @@ export function generateDoughnutChartData() {
   const selectedLabelSet =
     labelSets[Math.floor(Math.random() * labelSets.length)];
 
-  // Select a random number of types (3-6)
-  const numTypes = Math.floor(Math.random() * 4) + 3;
+  // Select a random number of types (2-6)
+  const numTypes = Math.floor(Math.random() * 5) + 2;
   const selectedTypes = [...selectedLabelSet]
     .sort(() => 0.5 - Math.random())
     .slice(0, numTypes);
