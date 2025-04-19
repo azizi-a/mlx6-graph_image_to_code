@@ -49,6 +49,7 @@ def extract_code(code):
   """
   Extract just the code part (remove any assistant prefixes)
   """
+
   if "assistant" in code.lower():
     code = code.split("assistant")[-1].strip()
     if code.startswith(":"):
@@ -64,12 +65,17 @@ def extract_code(code):
 #
 #
 #
-def generate_d3_code(model, processor, image_path, output_path=None, max_length=1024):
+def generate_d3_code(model, processor, image=None, image_path=None, max_length=1024):
   """
   Generate D3.js code for a graph image
   """
-  # Load and process the image
-  image = PIL.Image.open(image_path).convert("RGB")
+
+  if image is None and image_path is None:
+    raise ValueError("Either image or image_path must be provided")
+
+  if image is None:
+    # Load and process the image
+    image = PIL.Image.open(image_path).convert("RGB")
 
   # Create messages for chat template with proper image formatting
   messages = [
@@ -90,11 +96,9 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
 
   generation_config = {
     "max_length": max_length,
-    "do_sample": False,  # Use greedy decoding for code generation
-    "num_beams": 1,  # Use beam search with 1 beam (greedy)
-    "temperature": 1.0,  # Temperature is not used with do_sample=False
-    "pad_token_id": processor.tokenizer.pad_token_id,
-    "eos_token_id": processor.tokenizer.eos_token_id,
+    "do_sample": True,
+    "num_beams": 1,
+    "temperature": 0.1,
   }
 
   # Generate code
@@ -106,8 +110,31 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
 
   code = extract_code(generated_text)
 
+  return code
+
+
+#
+#
+#
+def load_model_and_generate_d3_code(model_path, image=None, image_path=None, max_length=1024):
+  """
+  Load the model and generate D3.js code for a graph image
+  """
+
+  # Load model
+  model, processor = load_model(model_path)
+
+  # Generate code
+  code = generate_d3_code(model, processor, image, image_path, max_length)
+  return code
+
+
+#
+#
+#
+def save_html(code, output_path):
   # Create a complete HTML page with the generated D3.js code
-  html_template = f"""<!DOCTYPE html>
+  html = f"""<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8" />
@@ -133,18 +160,13 @@ def generate_d3_code(model, processor, image_path, output_path=None, max_length=
     </script>
   </body>
 </html>"""
+  # If output doesn't end with .html, add .html extension
+  if not output_path.endswith(".html"):
+    output_path = f"{output_path}.html"
 
-  # Save to file if output path is provided
-  if output_path:
-    # If output doesn't end with .html, add .html extension
-    if not output_path.endswith(".html"):
-      output_path = f"{output_path}.html"
-
-    with open(output_path, "w") as f:
-      f.write(html_template)
-    print(f"Complete HTML with D3.js code saved to {output_path}")
-
-  return code
+  with open(output_path, "w") as f:
+    f.write(html)
+  print(f"Complete HTML with D3.js code saved to {output_path}")
 
 
 #
@@ -173,7 +195,16 @@ def main():
 
   # Generate code
   print(f"Generating D3.js code for {args.image}...")
-  code = generate_d3_code(model, processor, args.image, args.output, args.max_length)
+  code = generate_d3_code(
+    model,
+    processor,
+    image_path=args.image,
+    max_length=args.max_length,
+  )
+
+  # Save HTML
+  if args.output:
+    save_html(code, args.output)
 
   if args.output:
     print(f"Complete HTML with D3.js code saved to {args.output}")
