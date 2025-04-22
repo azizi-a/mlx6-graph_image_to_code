@@ -5,7 +5,8 @@ import transformers
 import peft
 import pathlib
 
-from src import graph_dataset
+import src.constants
+import src.graph_dataset
 
 # Load model and processor
 processor = transformers.AutoProcessor.from_pretrained(
@@ -53,7 +54,11 @@ model.print_trainable_parameters()
 #
 # Load datasets and create dataloaders
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-train_loader, val_loader = graph_dataset.prepare_training_data(processor, batch_size=16, device=device)
+train_loader, val_loader = src.graph_dataset.prepare_training_data(
+  processor,
+  batch_size=src.constants.BATCH_SIZE,
+  device=device,
+)
 print(f"Created dataloaders with {len(train_loader)} training batches and {len(val_loader)} validation batches")
 
 # Set up training parameters
@@ -148,8 +153,8 @@ def validate_loop(model, val_loader, epoch=None, num_epochs=None):
 #
 #
 if __name__ == "__main__":
-  learning_rate = 1e-5
-  num_epochs = 10
+  learning_rate = src.constants.LEARNING_RATE
+  num_epochs = src.constants.NUM_EPOCHS
 
   # Get the project root directory for saving weights
   project_root = pathlib.Path(__file__).parent.parent

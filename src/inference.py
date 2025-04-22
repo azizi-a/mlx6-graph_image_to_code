@@ -5,6 +5,8 @@ import transformers
 import peft
 import os
 
+import src.constants
+
 
 #
 #
@@ -65,7 +67,7 @@ def extract_code(code):
 #
 #
 #
-def generate_d3_code(model, processor, image=None, image_path=None, max_length=1024):
+def generate_d3_code(model, processor, image=None, image_path=None, max_length=src.constants.MAX_LENGTH):
   """
   Generate D3.js code for a graph image
   """
@@ -116,7 +118,7 @@ def generate_d3_code(model, processor, image=None, image_path=None, max_length=1
 #
 #
 #
-def load_model_and_generate_d3_code(model_path, image=None, image_path=None, max_length=1024):
+def load_model_and_generate_d3_code(model_path, image=None, image_path=None, max_length=src.constants.MAX_LENGTH):
   """
   Load the model and generate D3.js code for a graph image
   """
@@ -184,7 +186,9 @@ def main():
     default="./inference_results/graph.html",
     help="Path to save the generated HTML with D3.js code (optional)",
   )
-  parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of generated code")
+  parser.add_argument(
+    "--max_length", type=int, default=src.constants.MAX_LENGTH, help="Maximum length of generated code"
+  )
   parser.add_argument("--use_original", action="store_true", help="Use the original model without fine-tuned weights")
 
   args = parser.parse_args()
