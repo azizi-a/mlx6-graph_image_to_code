@@ -1,4 +1,5 @@
 import fastapi
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import io
 import PIL
@@ -13,6 +14,14 @@ is_prod = [x for x in args if x == "--prod"]
 is_prod = bool(len(is_prod))
 
 app = fastapi.FastAPI(title="D3.js Generator", description="Generate D3.js code for graphs from images")
+
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -31,7 +40,7 @@ async def generate_d3_code(file: fastapi.UploadFile = fastapi.File(...)):
     image = image.convert("RGB")
 
   # Generate code
-  code = await src.inference.load_model_and_generate_d3_code(src.constants.MODEL_PATH, image)
+  code = src.inference.load_model_and_generate_d3_code(src.constants.MODEL_PATH, image)
   return {"code": code}
 
 

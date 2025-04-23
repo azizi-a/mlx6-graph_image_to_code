@@ -57,7 +57,7 @@ in the `models/` folder.
 uv run -m src.train
 ```
 
-### Inference
+### Inference Script
 
 Inference is done using the `src/inference.py` script with model LoRa weights
 saved in the `models/` folder.
@@ -66,7 +66,7 @@ saved in the `models/` folder.
 uv run -m src.inference --image path/to/chart.png --output generated_code.html
 ```
 
-### Inference Options
+#### Inference Options
 
 - `--image`: Path to the input chart image (required)
 - `--model`: Path to the fine-tuned model (default:
@@ -86,3 +86,54 @@ uv run -m src.inference --image data/generated_graphs/graph_1_bar.png --output m
 The script will load the fine-tuned model, process the input image, and generate
 D3.js code that recreates the chart in the image. The generated code will be
 saved wrapped in a `<script>` tag in a html file.
+
+## Application
+
+The application is a simple web application that allows users to upload an image
+and generate D3.js code that recreates the chart in the image.
+
+### Running the Application
+
+#### 1. Server
+
+1. Load python environment
+
+```bash
+source .venv/bin/activate
+```
+
+2. Install dependencies
+
+```bash
+uv sync
+```
+
+3. Start the server
+
+```bash
+uv run -m src.server
+```
+
+#### 2. Client
+
+1. Move to client directory
+
+```bash
+cd client
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Start the client
+
+```bash
+npm run dev
+```
+
+### Accessing the Application
+
+The application can be accessed at `http://localhost:3000`.
